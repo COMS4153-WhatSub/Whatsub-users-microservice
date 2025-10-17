@@ -10,7 +10,8 @@ from app.utils.settings import get_settings
 from app.utils.logger import init_logger
 from app.middleware.request_logger import RequestLoggingMiddleware
 from app.middleware.error_handler import register_error_handlers
-from app.services.user_service import InMemoryUserService
+from app.services.user_service import InMemoryUserService, SqlAlchemyUserService
+from app.utils.db import get_session_factory, create_all, get_engine
 from app.resources.health import router as health_router
 from app.resources.users import router as users_router
 
@@ -56,7 +57,21 @@ app.add_middleware(RequestLoggingMiddleware, logger=logger)
 
 register_error_handlers(app, logger)
 
-app.state.user_service = InMemoryUserService(logger)
+# Choose service based on database configuration
+if all([settings.db_host, settings.db_user, settings.db_pass, settings.db_name]):
+    try:
+        engine = get_engine()
+        create_all(engine)  # Create tables if they don't exist
+        session_factory = get_session_factory()
+        app.state.user_service = SqlAlchemyUserService(logger, session_factory)
+        logger.info("database_connected", host=settings.db_host, database=settings.db_name)
+    except Exception as e:
+        logger.error("database_connection_failed", error=str(e))
+        logger.info("falling_back_to_in_memory")
+        app.state.user_service = InMemoryUserService(logger)
+else:
+    logger.info("no_database_configuration_using_in_memory")
+    app.state.user_service = InMemoryUserService(logger)
 
 app.include_router(health_router, prefix="")
 app.include_router(users_router, prefix="/users", tags=["users"])

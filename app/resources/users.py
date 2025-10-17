@@ -3,13 +3,13 @@ from fastapi import APIRouter, Depends, HTTPException, Request, status
 
 from app.models.user import User, UserCreate, UserUpdate
 from app.models.common import ErrorResponse
-from app.services.user_service import InMemoryUserService
+from app.services.user_service import InMemoryUserService, UserServiceProtocol
 
 
 router = APIRouter()
 
 
-def get_user_service(request: Request) -> InMemoryUserService:
+def get_user_service(request: Request) -> UserServiceProtocol:
     return request.app.state.user_service
 
 
@@ -29,8 +29,8 @@ def get_user_service(request: Request) -> InMemoryUserService:
         }
     },
 )
-async def list_users(service: InMemoryUserService = Depends(get_user_service)):
-    raise HTTPException(status_code=501, detail="Not implemented")
+async def list_users(service: UserServiceProtocol = Depends(get_user_service)):
+    return service.list_users()
 
 
 @router.post(
@@ -51,9 +51,9 @@ async def list_users(service: InMemoryUserService = Depends(get_user_service)):
     },
 )
 async def create_user(
-    payload: UserCreate, service: InMemoryUserService = Depends(get_user_service)
+    payload: UserCreate, service: UserServiceProtocol = Depends(get_user_service)
 ):
-    raise HTTPException(status_code=501, detail="Not implemented")
+    return service.create_user(payload)
 
 
 @router.get(
@@ -81,8 +81,11 @@ async def create_user(
         },
     },
 )
-async def get_user(user_id: str, service: InMemoryUserService = Depends(get_user_service)):
-    raise HTTPException(status_code=501, detail="Not implemented")
+async def get_user(user_id: str, service: UserServiceProtocol = Depends(get_user_service)):
+    user = service.get_user(user_id)
+    if not user:
+        raise HTTPException(status_code=404, detail="User not found")
+    return user
 
 
 @router.patch(
@@ -111,9 +114,12 @@ async def get_user(user_id: str, service: InMemoryUserService = Depends(get_user
     },
 )
 async def update_user(
-    user_id: str, payload: UserUpdate, service: InMemoryUserService = Depends(get_user_service)
+    user_id: str, payload: UserUpdate, service: UserServiceProtocol = Depends(get_user_service)
 ):
-    raise HTTPException(status_code=501, detail="Not implemented")
+    user = service.update_user(user_id, payload)
+    if not user:
+        raise HTTPException(status_code=404, detail="User not found")
+    return user
 
 
 @router.delete(
@@ -141,5 +147,8 @@ async def update_user(
         },
     },
 )
-async def delete_user(user_id: str, service: InMemoryUserService = Depends(get_user_service)):
-    raise HTTPException(status_code=501, detail="Not implemented")
+async def delete_user(user_id: str, service: UserServiceProtocol = Depends(get_user_service)):
+    ok = service.delete_user(user_id)
+    if not ok:
+        raise HTTPException(status_code=404, detail="User not found")
+    return None

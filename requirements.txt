@@ -4,3 +4,5 @@ structlog==24.4.0
 pydantic==2.9.2
 pydantic-settings==2.5.2
 python-dotenv==1.0.1
+SQLAlchemy==2.0.35
+PyMySQL==1.1.1

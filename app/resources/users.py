@@ -3,7 +3,7 @@ from fastapi import APIRouter, Depends, HTTPException, Request, status
 
 from app.models.user import User, UserCreate, UserUpdate
 from app.models.common import ErrorResponse
-from app.services.user_service import InMemoryUserService, UserServiceProtocol
+from app.services.user_service import UserServiceProtocol
 
 
 router = APIRouter()

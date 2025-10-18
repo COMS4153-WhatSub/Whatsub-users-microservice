@@ -79,28 +79,28 @@ class SqlAlchemyUserService:
     def list_users(self) -> List[User]:
         with self.session_factory() as session:
             rows = session.query(UserORM).all()
-            return [User(id=row.id, email=row.email, full_name=row.full_name, primary_phone=row.primary_phone) for row in rows]
+            return [User(id=row.user_id, email=row.email, full_name=row.username, primary_phone=row.phone) for row in rows]
 
     def get_user(self, user_id: str) -> Optional[User]:
         with self.session_factory() as session:
             row = session.get(UserORM, user_id)
             if not row:
                 return None
-            return User(id=row.id, email=row.email, full_name=row.full_name, primary_phone=row.primary_phone)
+            return User(id=row.user_id, email=row.email, full_name=row.username, primary_phone=row.phone)
 
     def create_user(self, payload: UserCreate) -> User:
         with self.session_factory() as session:
             new_row = UserORM(
-                id=str(uuid.uuid4()),
+                user_id=str(uuid.uuid4()),
+                username=payload.full_name,  # Map full_name to username
                 email=payload.email,
-                full_name=payload.full_name,
-                primary_phone=payload.primary_phone,
+                phone=payload.primary_phone,  # Map primary_phone to phone
             )
             session.add(new_row)
             session.commit()
             session.refresh(new_row)
-            self.logger.info("user_created", user_id=new_row.id)
-            return User(id=new_row.id, email=new_row.email, full_name=new_row.full_name, primary_phone=new_row.primary_phone)
+            self.logger.info("user_created", user_id=new_row.user_id)
+            return User(id=new_row.user_id, email=new_row.email, full_name=new_row.username, primary_phone=new_row.phone)
 
     def update_user(self, user_id: str, payload: UserUpdate) -> Optional[User]:
         with self.session_factory() as session:
@@ -110,14 +110,14 @@ class SqlAlchemyUserService:
             if payload.email is not None:
                 row.email = payload.email
             if payload.full_name is not None:
-                row.full_name = payload.full_name
+                row.username = payload.full_name  # Map full_name to username
             if payload.primary_phone is not None:
-                row.primary_phone = payload.primary_phone
+                row.phone = payload.primary_phone  # Map primary_phone to phone
             session.add(row)
             session.commit()
             session.refresh(row)
             self.logger.info("user_updated", user_id=user_id)
-            return User(id=row.id, email=row.email, full_name=row.full_name, primary_phone=row.primary_phone)
+            return User(id=row.user_id, email=row.email, full_name=row.username, primary_phone=row.phone)
 
     def delete_user(self, user_id: str) -> bool:
         with self.session_factory() as session:

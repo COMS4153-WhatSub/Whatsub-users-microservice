@@ -10,6 +10,7 @@ from app.services.orm_models import Base
 
 def get_engine():
     settings = get_settings()
+    print(settings.db_host, settings.db_user, settings.db_pass, settings.db_name)
     if not all([settings.db_host, settings.db_user, settings.db_pass, settings.db_name]):
         raise RuntimeError("Database configuration is incomplete. Check db_host, db_user, db_pass, db_name")
     

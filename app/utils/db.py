@@ -14,15 +14,20 @@ def get_engine():
     if not all([settings.db_host, settings.db_user, settings.db_pass, settings.db_name]):
         raise RuntimeError("Database configuration is incomplete. Check db_host, db_user, db_pass, db_name")
     
-    # Build MySQL connection URL
-    database_url = f"mysql+pymysql://{settings.db_user}:{settings.db_pass}@{settings.db_host}:{settings.db_port}/{settings.db_name}"
+    # Build MySQL connection URL with SSL parameters
+    database_url = f"mysql+pymysql://{settings.db_user}:{settings.db_pass}@{settings.db_host}:{settings.db_port}/{settings.db_name}?ssl_ca=server-ca.pem&ssl_cert=client-cert.pem&ssl_key=client-key.pem"
     
-    # SQLAlchemy 2.0 engine with connection pooling
+    # SQLAlchemy 2.0 engine with connection pooling and SSL
     engine = create_engine(
         database_url,
         pool_pre_ping=True,
         pool_recycle=3600,  # Recycle connections every hour
-        future=True
+        future=True,
+        connect_args={
+            "ssl_disabled": False,
+            "ssl_verify_cert": True,
+            "ssl_verify_identity": True
+        }
     )
     return engine
 

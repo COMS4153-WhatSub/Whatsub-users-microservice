@@ -10,10 +10,12 @@ from app.utils.settings import get_settings
 from app.utils.logger import init_logger
 from app.middleware.request_logger import RequestLoggingMiddleware
 from app.middleware.error_handler import register_error_handlers
-from app.services.user_service import InMemoryUserService, SqlAlchemyUserService
+from app.services.user_service import SqlAlchemyUserService
 from app.utils.db import get_session_factory, create_all, get_engine
 from app.resources.health import router as health_router
 from app.resources.users import router as users_router
+from app.resources.auth import router as auth_router
+from app.services.auth_service import AuthService
 
 
 settings = get_settings()
@@ -27,6 +29,10 @@ openapi_tags = [
     {
         "name": "users",
         "description": "Operations for managing user accounts.",
+    },
+    {
+        "name": "auth",
+        "description": "Authentication and authorization operations.",
     },
 ]
 
@@ -57,24 +63,44 @@ app.add_middleware(RequestLoggingMiddleware, logger=logger)
 
 register_error_handlers(app, logger)
 
-# Choose service based on database configuration
-if all([settings.db_host, settings.db_user, settings.db_pass, settings.db_name]):
-    try:
-        engine = get_engine()
-        create_all(engine)  # Create tables if they don't exist
-        session_factory = get_session_factory()
-        app.state.user_service = SqlAlchemyUserService(logger, session_factory)
-        logger.info("database_connected", host=settings.db_host, database=settings.db_name)
-    except Exception as e:
-        logger.error("database_connection_failed", error=str(e))
-        logger.info("falling_back_to_in_memory")
-        app.state.user_service = InMemoryUserService(logger)
+# Require database configuration - fail if not provided or connection fails
+missing_vars = []
+if not settings.db_host:
+    missing_vars.append("db_host")
+if not settings.db_user:
+    missing_vars.append("db_user")
+if not settings.db_pass:
+    missing_vars.append("db_pass")
+if not settings.db_name:
+    missing_vars.append("db_name")
+
+if missing_vars:
+    error_msg = f"Database configuration is required. Missing environment variables: {', '.join(missing_vars)}"
+    logger.error("database_configuration_missing", missing_variables=missing_vars)
+    raise RuntimeError(error_msg)
+
+# Connect to database - fail fast if connection cannot be established
+try:
+    engine = get_engine()
+    create_all(engine)  # Create tables if they don't exist
+    session_factory = get_session_factory()
+    app.state.user_service = SqlAlchemyUserService(logger, session_factory)
+    logger.info("database_connected", host=settings.db_host, database=settings.db_name)
+except Exception as e:
+    error_msg = f"Failed to connect to database: {str(e)}"
+    logger.error("database_connection_failed", error=error_msg)
+    raise RuntimeError(error_msg) from e
+
+# Initialize authentication service
+app.state.auth_service = AuthService(settings, logger)
+if settings.google_client_id:
+    logger.info("google_oauth_configured", client_id=settings.google_client_id[:10] + "...")
 else:
-    logger.info("no_database_configuration_using_in_memory")
-    app.state.user_service = InMemoryUserService(logger)
+    logger.warning("google_oauth_not_configured", message="Google OAuth client ID not set")
 
 app.include_router(health_router, prefix="")
 app.include_router(users_router, prefix="/users", tags=["users"])
+app.include_router(auth_router, prefix="", tags=["auth"])
 
 
 @app.get("/")
@@ -84,4 +110,6 @@ async def root():
 
 if __name__ == "__main__":
     import uvicorn
-    uvicorn.run("app.main:app", host="0.0.0.0", port=settings.port, reload=True)
+    # Use PORT env var (required for Cloud Run) or fallback to settings
+    port = int(os.getenv("PORT", settings.port))
+    uvicorn.run("app.main:app", host="0.0.0.0", port=port, reload=False)

@@ -3,9 +3,9 @@ from pydantic import BaseModel, EmailStr, Field
 
 
 class UserBase(BaseModel):
-    email: EmailStr
-    full_name: Optional[str] = Field(default=None)
-    primary_phone: Optional[str] = Field(default=None)
+    email: EmailStr = Field(description="User email address (must be a valid email format)")
+    full_name: Optional[str] = Field(default=None, description="User's full name")
+    primary_phone: Optional[str] = Field(default=None, description="User's primary phone number")
 
     model_config = {
         "json_schema_extra": {
@@ -17,7 +17,7 @@ class UserBase(BaseModel):
 
 
 class UserCreate(UserBase):
-    password: str = Field(min_length=8)
+    password: str = Field(min_length=8, description="User password (minimum 8 characters)")
 
     model_config = {
         "json_schema_extra": {
@@ -34,10 +34,10 @@ class UserCreate(UserBase):
 
 
 class UserUpdate(BaseModel):
-    email: Optional[EmailStr] = None
-    full_name: Optional[str] = None
-    password: Optional[str] = Field(default=None, min_length=8)
-    primary_phone: Optional[str] = None
+    email: Optional[EmailStr] = Field(default=None, description="User email address (must be a valid email format)")
+    full_name: Optional[str] = Field(default=None, description="User's full name")
+    password: Optional[str] = Field(default=None, min_length=8, description="User password (minimum 8 characters)")
+    primary_phone: Optional[str] = Field(default=None, description="User's primary phone number")
     model_config = {
         "json_schema_extra": {
             "examples": [
@@ -50,8 +50,8 @@ class UserUpdate(BaseModel):
     }
 
 
-class User(UserBase):
-    id: str
+class UserRead(UserBase):
+    id: str = Field(description="User ID (UUID format)")
 
     model_config = {
         "from_attributes": True,

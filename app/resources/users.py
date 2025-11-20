@@ -36,6 +36,26 @@ async def create_user(
 
 
 @router.get(
+    "/internal/{user_id}",
+    response_model=UserRead,
+    include_in_schema=False,
+    summary="Get user (Internal)",
+)
+async def get_user_internal(
+    user_id: str,
+    service: UserServiceProtocol = Depends(get_user_service)
+):
+    """
+    Internal endpoint for microservices to fetch user data without user-level auth.
+    Should be protected by network policy or service account in production.
+    """
+    user = service.get_user(user_id)
+    if not user:
+        raise HTTPException(status_code=404, detail="User not found")
+    return user
+
+
+@router.get(
     "/{user_id}",
     response_model=UserRead,
     summary="Get a user by ID",

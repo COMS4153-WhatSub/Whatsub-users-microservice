@@ -66,13 +66,14 @@ class AuthService:
             self.logger.error("google_token_verification_error", error=str(e), error_type=type(e).__name__)
             return None
     
-    def create_access_token(self, user_id: str, email: str) -> str:
+    def create_access_token(self, user_id: str, email: str, role: str = "user") -> str:
         """
         Create JWT access token for authenticated user
         
         Args:
             user_id: User ID
             email: User email
+            role: User role (user or admin)
             
         Returns:
             JWT token string
@@ -82,6 +83,7 @@ class AuthService:
         payload = {
             "sub": user_id,  # Subject (user ID)
             "email": email,
+            "role": role,  # User role
             "exp": expire,  # Expiration time
             "iat": datetime.utcnow(),  # Issued at
         }
@@ -92,7 +94,7 @@ class AuthService:
             algorithm=self.settings.jwt_algorithm
         )
         
-        self.logger.info("access_token_created", user_id=user_id)
+        self.logger.info("access_token_created", user_id=user_id, role=role)
         return token
     
     def verify_access_token(self, token: str) -> Optional[Dict[str, Any]]:

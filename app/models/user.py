@@ -1,5 +1,11 @@
 from typing import Optional
+from enum import Enum
 from pydantic import BaseModel, EmailStr, Field
+
+
+class UserRole(str, Enum):
+    user = "user"
+    admin = "admin"
 
 
 class UserBase(BaseModel):
@@ -52,6 +58,7 @@ class UserUpdate(BaseModel):
 
 class UserRead(UserBase):
     id: str = Field(description="User ID (UUID format)")
+    role: UserRole = Field(default=UserRole.user, description="User role (user or admin)")
 
     model_config = {
         "from_attributes": True,
@@ -62,6 +69,7 @@ class UserRead(UserBase):
                     "email": "alice@example.com",
                     "full_name": "Alice Smith",
                     "primary_phone": "+1234567890",
+                    "role": "user",
                 }
             ]
         },

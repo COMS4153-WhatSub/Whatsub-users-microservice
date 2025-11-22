@@ -3,7 +3,7 @@ from typing import Dict, List, Optional, Protocol, Callable
 
 from sqlalchemy.orm import Session
 
-from app.models.user import UserRead, UserCreate, UserUpdate
+from app.models.user import UserRead, UserCreate, UserUpdate, UserRole
 from app.services.orm_models import UserORM
 
 
@@ -44,14 +44,26 @@ class SqlAlchemyUserService:
     def list_users(self) -> List[UserRead]:
         with self.session_factory() as session:
             rows = session.query(UserORM).all()
-            return [UserRead(id=row.user_id, email=row.email, full_name=row.username, primary_phone=row.phone) for row in rows]
+            return [UserRead(
+                id=row.user_id, 
+                email=row.email, 
+                full_name=row.username, 
+                primary_phone=row.phone,
+                role=UserRole(row.role) if row.role else UserRole.user
+            ) for row in rows]
 
     def get_user(self, user_id: str) -> Optional[UserRead]:
         with self.session_factory() as session:
             row = session.get(UserORM, user_id)
             if not row:
                 return None
-            return UserRead(id=row.user_id, email=row.email, full_name=row.username, primary_phone=row.phone)
+            return UserRead(
+                id=row.user_id, 
+                email=row.email, 
+                full_name=row.username, 
+                primary_phone=row.phone,
+                role=UserRole(row.role) if row.role else UserRole.user
+            )
 
     def get_user_by_google_id(self, google_id: str) -> Optional[UserRead]:
         """Get user by Google ID"""
@@ -59,7 +71,13 @@ class SqlAlchemyUserService:
             row = session.query(UserORM).filter(UserORM.google_id == google_id).first()
             if not row:
                 return None
-            return UserRead(id=row.user_id, email=row.email, full_name=row.username, primary_phone=row.phone)
+            return UserRead(
+                id=row.user_id, 
+                email=row.email, 
+                full_name=row.username, 
+                primary_phone=row.phone,
+                role=UserRole(row.role) if row.role else UserRole.user
+            )
 
     def get_user_by_email(self, email: str) -> Optional[UserRead]:
         """Get user by email"""
@@ -67,7 +85,13 @@ class SqlAlchemyUserService:
             row = session.query(UserORM).filter(UserORM.email == email).first()
             if not row:
                 return None
-            return UserRead(id=row.user_id, email=row.email, full_name=row.username, primary_phone=row.phone)
+            return UserRead(
+                id=row.user_id, 
+                email=row.email, 
+                full_name=row.username, 
+                primary_phone=row.phone,
+                role=UserRole(row.role) if row.role else UserRole.user
+            )
 
     def create_user(self, payload: UserCreate) -> UserRead:
         with self.session_factory() as session:
@@ -76,12 +100,19 @@ class SqlAlchemyUserService:
                 username=payload.full_name,  # Map full_name to username
                 email=payload.email,
                 phone=payload.primary_phone,  # Map primary_phone to phone
+                role="user",  # Default role
             )
             session.add(new_row)
             session.commit()
             session.refresh(new_row)
             self.logger.info("user_created", user_id=new_row.user_id)
-            return UserRead(id=new_row.user_id, email=new_row.email, full_name=new_row.username, primary_phone=new_row.phone)
+            return UserRead(
+                id=new_row.user_id, 
+                email=new_row.email, 
+                full_name=new_row.username, 
+                primary_phone=new_row.phone,
+                role=UserRole(new_row.role) if new_row.role else UserRole.user
+            )
 
     def create_user_from_google(self, google_id: str, email: str, name: Optional[str] = None) -> UserRead:
         """Create user from Google OAuth information"""
@@ -95,12 +126,19 @@ class SqlAlchemyUserService:
                 email=email,
                 google_id=google_id,
                 phone=None,
+                role="user",  # Default role
             )
             session.add(new_row)
             session.commit()
             session.refresh(new_row)
             self.logger.info("user_created_from_google", user_id=new_row.user_id, google_id=google_id, email=email)
-            return UserRead(id=new_row.user_id, email=new_row.email, full_name=new_row.username, primary_phone=new_row.phone)
+            return UserRead(
+                id=new_row.user_id, 
+                email=new_row.email, 
+                full_name=new_row.username, 
+                primary_phone=new_row.phone,
+                role=UserRole(new_row.role) if new_row.role else UserRole.user
+            )
 
     def update_user(self, user_id: str, payload: UserUpdate) -> Optional[UserRead]:
         with self.session_factory() as session:
@@ -117,7 +155,13 @@ class SqlAlchemyUserService:
             session.commit()
             session.refresh(row)
             self.logger.info("user_updated", user_id=user_id)
-            return UserRead(id=row.user_id, email=row.email, full_name=row.username, primary_phone=row.phone)
+            return UserRead(
+                id=row.user_id, 
+                email=row.email, 
+                full_name=row.username, 
+                primary_phone=row.phone,
+                role=UserRole(row.role) if row.role else UserRole.user
+            )
 
     def link_google_id(self, user_id: str, google_id: str) -> Optional[UserRead]:
         """Link Google ID to existing user account"""
@@ -130,7 +174,13 @@ class SqlAlchemyUserService:
             session.commit()
             session.refresh(row)
             self.logger.info("google_id_linked", user_id=user_id, google_id=google_id)
-            return UserRead(id=row.user_id, email=row.email, full_name=row.username, primary_phone=row.phone)
+            return UserRead(
+                id=row.user_id, 
+                email=row.email, 
+                full_name=row.username, 
+                primary_phone=row.phone,
+                role=UserRole(row.role) if row.role else UserRole.user
+            )
 
     def delete_user(self, user_id: str) -> bool:
         with self.session_factory() as session:

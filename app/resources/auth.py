@@ -151,7 +151,7 @@ async def google_login(
             )
     
     # Step 6: Generate JWT access token
-    access_token = auth_service.create_access_token(user.id, user.email)
+    access_token = auth_service.create_access_token(user.id, user.email, user.role.value)
     expires_in = auth_service.get_token_expires_in()
     
     # Step 7: Build response
@@ -166,6 +166,7 @@ async def google_login(
         "email": user.email,
         "full_name": user.full_name,
         "primary_phone": user.primary_phone,
+        "role": user.role.value,  # Include role in response
     }
     
     return GoogleLoginResponse(

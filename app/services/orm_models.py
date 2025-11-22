@@ -15,4 +15,5 @@ class UserORM(Base):
     email: Mapped[str] = mapped_column(String(255), index=True, unique=True, nullable=False)
     phone: Mapped[str | None] = mapped_column(String(20), nullable=True)
     google_id: Mapped[str | None] = mapped_column(String(255), index=True, unique=True, nullable=True)
+    role: Mapped[str] = mapped_column(String(20), nullable=False, default="user", index=True)
     created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow, nullable=False)

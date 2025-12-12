@@ -2,13 +2,25 @@ import uuid
 from typing import Dict, List, Optional, Protocol, Callable
 
 from sqlalchemy.orm import Session
+from sqlalchemy import or_
 
 from app.models.user import UserRead, UserCreate, UserUpdate, UserRole
+from app.models.common import PaginatedResponse
 from app.services.orm_models import UserORM
 
 
 class UserServiceProtocol(Protocol):
-    def list_users(self) -> List[UserRead]:
+    def list_users(
+        self,
+        email: Optional[str] = None,
+        full_name: Optional[str] = None,
+        role: Optional[str] = None,
+        search: Optional[str] = None,
+        sort_by: Optional[str] = None,
+        sort_order: Optional[str] = None,
+        page: int = 1,
+        limit: int = 20,
+    ) -> PaginatedResponse[UserRead]:
         ...
 
     def get_user(self, user_id: str) -> Optional[UserRead]:
@@ -41,16 +53,122 @@ class SqlAlchemyUserService:
         self.logger = logger
         self.session_factory = session_factory
 
-    def list_users(self) -> List[UserRead]:
+    def list_users(
+        self,
+        email: Optional[str] = None,
+        full_name: Optional[str] = None,
+        role: Optional[str] = None,
+        search: Optional[str] = None,
+        sort_by: Optional[str] = None,
+        sort_order: Optional[str] = None,
+        page: int = 1,
+        limit: int = 20,
+    ) -> PaginatedResponse[UserRead]:
         with self.session_factory() as session:
-            rows = session.query(UserORM).all()
-            return [UserRead(
-                id=row.user_id, 
-                email=row.email, 
-                full_name=row.username, 
-                primary_phone=row.phone,
-                role=UserRole(row.role) if row.role else UserRole.user
-            ) for row in rows]
+            query = session.query(UserORM)
+            
+            # Apply filters
+            query = self._apply_filters(
+                query,
+                email=email,
+                full_name=full_name,
+                role=role,
+                search=search,
+            )
+            
+            # Get total count before pagination
+            total = query.count()
+            
+            # Apply sorting
+            query = self._apply_sorting(query, sort_by, sort_order)
+            
+            # Apply pagination
+            offset = (page - 1) * limit
+            query = query.offset(offset).limit(limit)
+            
+            # Execute query
+            rows = query.all()
+            items = [
+                UserRead(
+                    id=row.user_id,
+                    email=row.email,
+                    full_name=row.username,
+                    primary_phone=row.phone,
+                    role=UserRole(row.role) if row.role else UserRole.user
+                ) for row in rows
+            ]
+            
+            # Calculate pagination metadata
+            total_pages = (total + limit - 1) // limit if total > 0 else 0
+            has_next = page < total_pages
+            has_prev = page > 1
+            
+            return PaginatedResponse(
+                items=items,
+                total=total,
+                page=page,
+                limit=limit,
+                total_pages=total_pages,
+                has_next=has_next,
+                has_prev=has_prev,
+            )
+    
+    def _apply_filters(
+        self,
+        query,
+        email: Optional[str] = None,
+        full_name: Optional[str] = None,
+        role: Optional[str] = None,
+        search: Optional[str] = None,
+    ):
+        """Apply filtering conditions to the query."""
+        if email:
+            query = query.filter(UserORM.email.ilike(f"%{email}%"))
+        
+        if full_name:
+            query = query.filter(UserORM.username.ilike(f"%{full_name}%"))
+        
+        if role:
+            query = query.filter(UserORM.role == role)
+        
+        if search:
+            # Search in email, username, and phone
+            search_filter = or_(
+                UserORM.email.ilike(f"%{search}%"),
+                UserORM.username.ilike(f"%{search}%"),
+                UserORM.phone.ilike(f"%{search}%"),
+            )
+            query = query.filter(search_filter)
+        
+        return query
+    
+    def _apply_sorting(self, query, sort_by: Optional[str] = None, sort_order: Optional[str] = None):
+        """Apply sorting to the query."""
+        # Default sorting by created_at descending (newest first)
+        if not sort_by:
+            return query.order_by(UserORM.created_at.desc())
+        
+        # Map sort_by field names to ORM columns
+        sort_mapping = {
+            "id": UserORM.user_id,
+            "email": UserORM.email,
+            "full_name": UserORM.username,
+            "role": UserORM.role,
+            "created_at": UserORM.created_at,
+        }
+        
+        sort_column = sort_mapping.get(sort_by.lower())
+        if not sort_column:
+            # Invalid sort_by, use default
+            return query.order_by(UserORM.created_at.desc())
+        
+        # Apply sort order
+        if sort_order and sort_order.lower() == "asc":
+            query = query.order_by(sort_column.asc())
+        else:
+            query = query.order_by(sort_column.desc())
+        
+        return query
 
     def get_user(self, user_id: str) -> Optional[UserRead]:
         with self.session_factory() as session:

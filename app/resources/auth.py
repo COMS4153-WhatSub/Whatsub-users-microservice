@@ -2,7 +2,7 @@ from fastapi import APIRouter, Depends, HTTPException, Request, status, Header
 from typing import Optional
 from app.models.auth import GoogleLoginRequest, GoogleLoginResponse, TokenResponse
 from app.models.common import ErrorResponse
-from app.models.user import UserRead
+from app.models.user import UserRead, UserRole
 from app.services.auth_service import AuthService
 from app.services.user_service import UserServiceProtocol
 from app.utils.settings import get_settings
@@ -233,6 +233,33 @@ def get_current_user(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="User not found",
             headers={"WWW-Authenticate": "Bearer"},
+        )
+    
+    return user
+
+
+def get_current_admin(
+    authorization: Optional[str] = Header(None),
+    user_service: UserServiceProtocol = Depends(get_user_service),
+    auth_service: AuthService = Depends(get_auth_service),
+) -> UserRead:
+    """
+    Dependency to get current authenticated admin user from JWT token.
+    Verifies token and checks that user has admin role.
+    
+    Usage:
+        @router.get("/admin-only")
+        async def admin_route(admin: UserRead = Depends(get_current_admin)):
+            return {"admin_id": admin.id}
+    """
+    # First get the current user (this handles token verification)
+    user = get_current_user(authorization, user_service, auth_service)
+    
+    # Check if user has admin role
+    if user.role != UserRole.admin:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Admin access required"
         )
     
     return user

@@ -16,7 +16,7 @@ class UserBase(BaseModel):
     model_config = {
         "json_schema_extra": {
             "examples": [
-                {"email": "alice@example.com", "full_name": "Alice Smith", "primary_phone": "+1234567890"}
+                {"email": "john.wick@example.com", "full_name": "John Wick", "primary_phone": "+1234567890"}
             ]
         }
     }

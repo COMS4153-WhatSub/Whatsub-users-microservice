@@ -1,10 +1,10 @@
-from typing import List
-from fastapi import APIRouter, Depends, HTTPException, Request, status
+from typing import List, Optional
+from fastapi import APIRouter, Depends, HTTPException, Request, Query, status
 
 from app.models.user import UserRead, UserCreate, UserUpdate
-from app.models.common import ErrorResponse
+from app.models.common import ErrorResponse, PaginatedResponse
 from app.services.user_service import UserServiceProtocol
-from app.resources.auth import get_current_user
+from app.resources.auth import get_current_user, get_current_admin
 
 
 router = APIRouter()
@@ -16,11 +16,56 @@ def get_user_service(request: Request) -> UserServiceProtocol:
 
 @router.get(
     "/",
-    response_model=List[UserRead],
+    response_model=PaginatedResponse[UserRead],
     summary="List users",
+    description="List users with filtering, sorting, and pagination. Requires admin role.",
+    responses={
+        200: {
+            "description": "Paginated list of users",
+        },
+        401: {
+            "model": ErrorResponse,
+            "description": "Unauthorized - Missing or invalid token",
+        },
+        403: {
+            "model": ErrorResponse,
+            "description": "Forbidden - Admin access required",
+        },
+    },
 )
-async def list_users(service: UserServiceProtocol = Depends(get_user_service)):
-    return service.list_users()
+async def list_users(
+    # Admin authentication
+    admin_user: UserRead = Depends(get_current_admin),
+    # Filtering parameters
+    email: Optional[str] = Query(None, description="Filter by email (partial match)"),
+    full_name: Optional[str] = Query(None, description="Filter by full name (partial match)"),
+    role: Optional[str] = Query(None, description="Filter by role (exact match)"),
+    search: Optional[str] = Query(None, description="Search in email, full name, and phone (partial match)"),
+    # Sorting parameters
+    sort_by: Optional[str] = Query(
+        None,
+        description="Sort by field: id, email, full_name, role, created_at",
+    ),
+    sort_order: Optional[str] = Query(
+        "desc",
+        description="Sort order: asc or desc",
+        regex="^(asc|desc)$",
+    ),
+    # Pagination parameters
+    page: int = Query(1, ge=1, description="Page number (1-indexed)"),
+    limit: int = Query(20, ge=1, le=100, description="Number of items per page (max 100)"),
+    service: UserServiceProtocol = Depends(get_user_service),
+):
+    return service.list_users(
+        email=email,
+        full_name=full_name,
+        role=role,
+        search=search,
+        sort_by=sort_by,
+        sort_order=sort_order,
+        page=page,
+        limit=limit,
+    )
 
 
 @router.post(
